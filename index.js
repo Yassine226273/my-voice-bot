@@ -1,46 +1,37 @@
 const { Telegraf } = require('telegraf');
-const { MsEdgeTTS, OUTPUT_FORMAT } = require('msedge-tts');
+const axios = require('axios');
 const http = require('http');
 
 const BOT_TOKEN = '8744351193:AAHEXILIZ7IfjqzGHj-kdLRh4uPFn3o_znY';
 const MY_ID = 7013389864; 
 
 const bot = new Telegraf(BOT_TOKEN);
-const tts = new MsEdgeTTS();
 
-// إنشاء السيرفر مع معالجة أفضل للأخطاء
-http.createServer((req, res) => { 
-    res.writeHead(200);
-    res.end('FENNTEL Studio is Online and Secure'); 
-}).listen(process.env.PORT || 3000);
+// سيرفر Render للبقاء متصلاً
+http.createServer((req, res) => { res.end('FENNTEL StreamElements Engine'); }).listen(process.env.PORT || 3000);
 
 bot.on('text', async (ctx) => {
     if (ctx.from.id !== MY_ID) return;
 
     const text = ctx.message.text;
-    // رسالة تنبيه واحدة فقط
-    const statusMsg = await ctx.reply('⏳ جاري الإلقاء الفخم...');
+    const statusMsg = await ctx.reply('⏳ جاري استدعاء الإلقاء البريطاني (Brian)...');
 
     try {
-        const buffer = await tts.getAudio(text, {
-            voiceName: "en-GB-RyanNeural",
-            outputFormat: OUTPUT_FORMAT.AUDIO_24KHZ_48KBITRATE_MONO_MP3,
-            rate: "-12%", 
-            pitch: "-1Hz"
+        // الربط المباشر مع StreamElements API
+        const voice = 'Brian';
+        const url = `https://api.streamelements.com/kappa/v2/speech?voice=${voice}&text=${encodeURIComponent(text)}`;
+
+        // إرسال الصوت كملف MP3 فوراً
+        await ctx.replyWithAudio({ url: url }, { 
+            title: "Brian - British Classic", 
+            performer: "FENNTEL AI" 
         });
 
-        // إرسال الصوت وحذف رسالة الانتظار
-        await ctx.replyWithAudio({ source: buffer }, { 
-            title: "Ryan - British Voice", 
-            performer: "FENNTEL AI",
-            caption: "تم التوليد بنجاح ✅"
-        });
-        
         await ctx.deleteMessage(statusMsg.message_id).catch(() => {});
 
     } catch (err) {
-        console.error("TTS Error:", err);
-        await ctx.telegram.editMessageText(ctx.chat.id, statusMsg.message_id, null, '❌ حدث خطأ بسيط، أعد إرسال النص مرة أخرى.');
+        console.error(err);
+        ctx.telegram.editMessageText(ctx.chat.id, statusMsg.message_id, null, '❌ فشل الاتصال، حاول تقصير النص قليلاً.');
     }
 });
 
