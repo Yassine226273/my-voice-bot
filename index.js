@@ -7,67 +7,50 @@ const bot = new Telegraf(BOT_TOKEN);
 const tts = new MsEdgeTTS();
 
 let ADMIN_ID = null; 
-// ذاكرة مؤقتة لحفظ النص لكل مستخدم
 const userTextCache = new Map();
 
-const server = http.createServer((req, res) => {
-    res.writeHead(200);
-    res.end('FENNTEL Studio Active');
-});
-
-const PORT = process.env.PORT || 3000;
-server.listen(PORT);
-
-setInterval(() => {
-    http.get("https://my-voice-bot-s9b0.onrender.com").on('error', (e) => console.log('Ping error'));
-}, 10 * 60 * 1000);
+// سيرفر Render
+http.createServer((req, res) => { res.end('Active'); }).listen(process.env.PORT || 3000);
 
 bot.start((ctx) => {
-    if (!ADMIN_ID) ADMIN_ID = ctx.from.id;
-    if (ctx.from.id === ADMIN_ID) {
-        ctx.reply('مرحباً بك في استوديو FENNTEL الصوتي. أرسل النص الإنجليزي الآن.');
-    }
+    ADMIN_ID = ctx.from.id;
+    ctx.reply('مرحباً بك يا مدير. أرسل النص الإنجليزي الآن.');
 });
 
 bot.on('text', async (ctx) => {
     if (ctx.from.id !== ADMIN_ID) return;
-    
-    // حفظ النص في الذاكرة المؤقتة للمستخدم
     userTextCache.set(ctx.from.id, ctx.message.text);
-
     const keyboard = Markup.inlineKeyboard([
         [Markup.button.callback('صوت بريطاني أنيق (Ryan) 🎙️', 'gen_ryan')],
         [Markup.button.callback('صوت بريطاني واثق (Thomas) 🏛️', 'gen_thomas')]
     ]);
-    ctx.reply('اختر الشخصية الصوتية المقنعة:', keyboard);
+    ctx.reply('اختر الشخصية الصوتية:', keyboard);
 });
 
 bot.action(/gen_(ryan|thomas)/, async (ctx) => {
     const voiceType = ctx.match[1] === 'ryan' ? "en-GB-RyanNeural" : "en-GB-ThomasNeural";
-    // جلب النص من الذاكرة المؤقتة
     const text = userTextCache.get(ctx.from.id);
 
-    if (!text) {
-        return ctx.reply('عذراً، انتهت جلسة النص. يرجى إعادة إرسال النص مرة أخرى.');
-    }
-
     try {
-        await ctx.answerCbQuery('جاري التوليد بجودة عالية...');
+        await ctx.answerCbQuery('جاري تحويل النص إلى صوت...');
+        
+        // محاولة توليد الصوت مع ضبط الوقت المستغرق
         const buffer = await tts.getAudio(text, {
             voiceName: voiceType,
             outputFormat: OUTPUT_FORMAT.AUDIO_24KHZ_48KBITRATE_MONO_MP3,
-            rate: "-8%"
+            rate: "-10%"
         });
 
-        await ctx.replyWithAudio({ source: buffer }, { 
-            title: "FENNTEL Voice", 
-            performer: "British Elegant" 
-        });
+        if (buffer) {
+            await ctx.replyWithAudio({ source: buffer }, { 
+                title: "FENNTEL Voice", 
+                performer: "British Accent" 
+            });
+        }
     } catch (err) {
-        console.error(err);
-        ctx.reply('حدث خطأ أثناء معالجة الصوت.');
+        console.error("TTS Error:", err);
+        ctx.reply('حدث خطأ. حاول تقصير النص قليلاً أو المحاولة مرة أخرى.');
     }
 });
 
-bot.catch((err) => console.log('Error:', err));
 bot.launch();
