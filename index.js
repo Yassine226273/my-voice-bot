@@ -2,50 +2,46 @@ const { Telegraf } = require('telegraf');
 const { MsEdgeTTS, OUTPUT_FORMAT } = require('msedge-tts');
 const http = require('http');
 
-// إعدادات البوت والمدير
 const BOT_TOKEN = '8744351193:AAHEXILIZ7IfjqzGHj-kdLRh4uPFn3o_znY';
 const MY_ID = 7013389864; 
 
 const bot = new Telegraf(BOT_TOKEN);
 const tts = new MsEdgeTTS();
 
-// سيرفر Render لضمان الاستقرار
+// إنشاء السيرفر مع معالجة أفضل للأخطاء
 http.createServer((req, res) => { 
-    res.end('FENNTEL Secure Audio Studio is Online'); 
+    res.writeHead(200);
+    res.end('FENNTEL Studio is Online and Secure'); 
 }).listen(process.env.PORT || 3000);
 
-// منع النوم (Self-Ping)
-setInterval(() => {
-    http.get("https://my-voice-bot-s9b0.onrender.com").on('error', () => {});
-}, 10 * 60 * 1000);
-
 bot.on('text', async (ctx) => {
-    // التحقق من الهوية (الخصوصية المطلقة)
-    if (ctx.from.id !== MY_ID) {
-        return; // لن يرد البوت على أي شخص غريب
-    }
+    if (ctx.from.id !== MY_ID) return;
 
     const text = ctx.message.text;
-    await ctx.reply('جاري تحويل النص إلى إلقاء بريطاني فخم... 🏛️');
+    // رسالة تنبيه واحدة فقط
+    const statusMsg = await ctx.reply('⏳ جاري الإلقاء الفخم...');
 
     try {
-        // توليد الصوت باستخدام أفضل إعدادات للفخامة والوقار
         const buffer = await tts.getAudio(text, {
             voiceName: "en-GB-RyanNeural",
             outputFormat: OUTPUT_FORMAT.AUDIO_24KHZ_48KBITRATE_MONO_MP3,
-            rate: "-12%", // بطء قليل لزيادة التأثير والإقناع
-            pitch: "-1Hz"  // نبرة رجولية أعمق قليلاً
+            rate: "-12%", 
+            pitch: "-1Hz"
         });
 
+        // إرسال الصوت وحذف رسالة الانتظار
         await ctx.replyWithAudio({ source: buffer }, { 
-            title: "Ryan - British Transformation", 
-            performer: "FENNTEL AI" 
+            title: "Ryan - British Voice", 
+            performer: "FENNTEL AI",
+            caption: "تم التوليد بنجاح ✅"
         });
+        
+        await ctx.deleteMessage(statusMsg.message_id).catch(() => {});
+
     } catch (err) {
-        console.error(err);
-        ctx.reply('حدث تداخل بسيط في الطلبات، يرجى إعادة إرسال النص.');
+        console.error("TTS Error:", err);
+        await ctx.telegram.editMessageText(ctx.chat.id, statusMsg.message_id, null, '❌ حدث خطأ بسيط، أعد إرسال النص مرة أخرى.');
     }
 });
 
 bot.launch();
-console.log('Secure Bot is Running...');
