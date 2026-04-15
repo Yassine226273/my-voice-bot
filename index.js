@@ -1,46 +1,37 @@
-const { Telegraf, Markup } = require('telegraf');
-const gTTS = require('gtts');
+const { Telegraf } = require('telegraf');
+const { MsEdgeTTS, OUTPUT_FORMAT } = require('msedge-tts');
 const http = require('http');
-const fs = require('fs');
 
 const BOT_TOKEN = '8744351193:AAHEXILIZ7IfjqzGHj-kdLRh4uPFn3o_znY';
 const bot = new Telegraf(BOT_TOKEN);
+const tts = new MsEdgeTTS();
 
-let ADMIN_ID = null;
-const userTextCache = new Map();
-
-// سيرفر Render لضمان التشغيل ومنع النوم
-http.createServer((req, res) => { res.end('FENNTEL Studio Online'); }).listen(process.env.PORT || 3000);
-
-bot.start((ctx) => {
-    ADMIN_ID = ctx.from.id;
-    ctx.reply('مرحباً بك يا مدير. أرسل النص الإنجليزي الآن وسأحوله لصوت بريطاني فوراً.');
-});
+// سيرفر Render
+http.createServer((req, res) => { res.end('FENNTEL Luxury Audio Active'); }).listen(process.env.PORT || 3000);
 
 bot.on('text', async (ctx) => {
-    if (ctx.from.id !== ADMIN_ID) return;
-    userTextCache.set(ctx.from.id, ctx.message.text);
-    
-    ctx.reply('جاري التوليد باللكنة البريطانية... 🎙️');
-    
+    // التأكد من أنك أنت فقط من يستخدم البوت
     const text = ctx.message.text;
-    const gtts = new gTTS(text, 'en-uk'); // اللكنة البريطانية
-    const fileName = `voice_${ctx.from.id}.mp3`;
+    
+    await ctx.reply('جاري تحضير الإلقاء البريطاني الفخم... 🏛️');
 
-    gtts.save(fileName, async (err) => {
-        if (err) {
-            console.error(err);
-            return ctx.reply('حدث خطأ فني، حاول مرة أخرى.');
-        }
-        
-        await ctx.replyWithAudio({ source: fileName }, { 
-            title: "FENNTEL British Voice", 
-            performer: "Success Voice" 
+    try {
+        // استخدام صوت Ryan البريطاني (رجل) بجودة عالية
+        const buffer = await tts.getAudio(text, {
+            voiceName: "en-GB-RyanNeural", 
+            outputFormat: OUTPUT_FORMAT.AUDIO_24KHZ_48KBITRATE_MONO_MP3,
+            rate: "-10%", // إبطاء بسيط للوقار
+            pitch: "-2Hz" // جعل الصوت أعمق قليلاً
         });
 
-        // مسح الملف بعد الإرسال لتوفير مساحة السيرفر
-        fs.unlinkSync(fileName);
-    });
+        await ctx.replyWithAudio({ source: buffer }, { 
+            title: "Ryan - British Excellence", 
+            performer: "FENNTEL AI" 
+        });
+    } catch (err) {
+        ctx.reply('حدث ضغط على المحرك، يرجى المحاولة بعد ثوانٍ قليلة.');
+        console.error(err);
+    }
 });
 
 bot.launch();
