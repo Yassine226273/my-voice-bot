@@ -6,27 +6,22 @@ const BOT_TOKEN = '8744351193:AAHEXILIZ7IfjqzGHj-kdLRh4uPFn3o_znY';
 const bot = new Telegraf(BOT_TOKEN);
 const tts = new MsEdgeTTS();
 
-// --- نظام الحماية (أدخل معرفك هنا إذا كنت تعرفه، أو سيعينه البوت لأول من يراسلُه) ---
 let ADMIN_ID = null; 
+// ذاكرة مؤقتة لحفظ النص لكل مستخدم
+const userTextCache = new Map();
 
-// --- سيرفر لإبقاء البوت حياً وتلبية شروط Render ---
 const server = http.createServer((req, res) => {
     res.writeHead(200);
-    res.end('FENNTEL Voice Studio is Online');
+    res.end('FENNTEL Studio Active');
 });
 
-// Render يطلب الاستماع للمنفذ الذي يحدده هو
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => {
-    console.log(`Server is running on port ${PORT}`);
-});
+server.listen(PORT);
 
-// منع النوم كل 10 دقائق
 setInterval(() => {
-    http.get("https://my-voice-bot-s9b0.onrender.com");
+    http.get("https://my-voice-bot-s9b0.onrender.com").on('error', (e) => console.log('Ping error'));
 }, 10 * 60 * 1000);
 
-// --- أوامر البوت ---
 bot.start((ctx) => {
     if (!ADMIN_ID) ADMIN_ID = ctx.from.id;
     if (ctx.from.id === ADMIN_ID) {
@@ -37,6 +32,9 @@ bot.start((ctx) => {
 bot.on('text', async (ctx) => {
     if (ctx.from.id !== ADMIN_ID) return;
     
+    // حفظ النص في الذاكرة المؤقتة للمستخدم
+    userTextCache.set(ctx.from.id, ctx.message.text);
+
     const keyboard = Markup.inlineKeyboard([
         [Markup.button.callback('صوت بريطاني أنيق (Ryan) 🎙️', 'gen_ryan')],
         [Markup.button.callback('صوت بريطاني واثق (Thomas) 🏛️', 'gen_thomas')]
@@ -46,31 +44,30 @@ bot.on('text', async (ctx) => {
 
 bot.action(/gen_(ryan|thomas)/, async (ctx) => {
     const voiceType = ctx.match[1] === 'ryan' ? "en-GB-RyanNeural" : "en-GB-ThomasNeural";
-    const text = ctx.callbackQuery.message.reply_to_message?.text;
+    // جلب النص من الذاكرة المؤقتة
+    const text = userTextCache.get(ctx.from.id);
 
-    if (!text) return ctx.reply('عذراً، لم أجد النص. أرسله مرة أخرى.');
+    if (!text) {
+        return ctx.reply('عذراً، انتهت جلسة النص. يرجى إعادة إرسال النص مرة أخرى.');
+    }
 
     try {
         await ctx.answerCbQuery('جاري التوليد بجودة عالية...');
         const buffer = await tts.getAudio(text, {
             voiceName: voiceType,
             outputFormat: OUTPUT_FORMAT.AUDIO_24KHZ_48KBITRATE_MONO_MP3,
-            rate: "-8%" // سرعة هادئة لإعطاء هيبة
+            rate: "-8%"
         });
 
         await ctx.replyWithAudio({ source: buffer }, { 
-            title: "British Voice", 
-            performer: "FENNTEL AI" 
+            title: "FENNTEL Voice", 
+            performer: "British Elegant" 
         });
     } catch (err) {
         console.error(err);
-        ctx.reply('حدث خطأ فني، قد يكون النص طويلاً جداً أو غير مدعوم.');
+        ctx.reply('حدث خطأ أثناء معالجة الصوت.');
     }
 });
 
-// صائد الأخطاء لضمان عدم توقف البوت
-bot.catch((err) => {
-    console.log('Telegraf Error:', err);
-});
-
+bot.catch((err) => console.log('Error:', err));
 bot.launch();
