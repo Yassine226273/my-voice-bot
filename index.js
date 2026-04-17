@@ -1,5 +1,5 @@
 const { Telegraf } = require('telegraf');
-const https = require('https');
+const axios = require('axios'); // تأكد من إضافة هذه المكتبة
 const http = require('http');
 
 const BOT_TOKEN = '8744351193:AAHEXILIZ7IfjqzGHj-kdLRh4uPFn3o_znY';
@@ -7,26 +7,37 @@ const MY_ID = 7013389864;
 
 const bot = new Telegraf(BOT_TOKEN);
 
-http.createServer((req, res) => { res.end('FENNTEL Engine Active'); }).listen(process.env.PORT || 3000);
+// استوديو FENNTEL الصوتي
+http.createServer((req, res) => { res.end('FENNTEL Studio is Online'); }).listen(process.env.PORT || 3000);
 
 bot.on('text', async (ctx) => {
     if (ctx.from.id !== MY_ID) return;
 
     const text = ctx.message.text;
-    const statusMsg = await ctx.reply('⏳ جاري تحويل النص إلى صوت (George)...');
+    const statusMsg = await ctx.reply('⏳ جاري تجهيز الإلقاء الفخم...');
 
-    // هنا يمكنك اختيار الصوت: 'George' للصوت الرسمي أو 'Brian' للصوت الملكي
-    const voice = 'George'; 
-    const url = `https://api.streamelements.com/kappa/v2/speech?voice=${voice}&text=${encodeURIComponent(text)}`;
+    try {
+        // نستخدم Microsoft George بناءً على طلبك الأخير
+        const voice = 'George'; 
+        const url = `https://api.streamelements.com/kappa/v2/speech?voice=${voice}&text=${encodeURIComponent(text)}`;
 
-    ctx.replyWithAudio({ url: url }, { 
-        title: "Microsoft George - British Classic", 
-        performer: "FENNTEL AI" 
-    }).then(() => {
-        ctx.deleteMessage(statusMsg.message_id).catch(() => {});
-    }).catch((err) => {
-        ctx.telegram.editMessageText(ctx.chat.id, statusMsg.message_id, null, '❌ حدث خطأ، حاول مرة أخرى.');
-    });
+        // تحميل البيانات الصوتية الفعلية بدلاً من إرسال الرابط فقط
+        const response = await axios.get(url, { responseType: 'arraybuffer' });
+        const audioBuffer = Buffer.from(response.data, 'binary');
+
+        // إرسال الصوت كملف حقيقي ليعمل على الهاتف
+        await ctx.replyWithAudio({ source: audioBuffer }, { 
+            title: "Microsoft George - British Classic", 
+            performer: "FENNTEL AI",
+            filename: "voice.mp3"
+        });
+
+        await ctx.deleteMessage(statusMsg.message_id).catch(() => {});
+
+    } catch (err) {
+        console.error(err);
+        await ctx.telegram.editMessageText(ctx.chat.id, statusMsg.message_id, null, '❌ فشل التوليد، السيرفر مضغوط حالياً.');
+    }
 });
 
 bot.launch();
